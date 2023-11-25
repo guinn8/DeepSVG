@@ -82,7 +82,7 @@ def interpolate_icons(idx1=None, idx2=None, n=25, *args, **kwargs):
 
 # Execution Logic (Example usage)
 id1, id2 = dataset.random_id(), dataset.random_id()
-output_file = "/home/guinn8/Code/deepsvg/output.gif"  # Output file path
+output_file = "/home/guinn8/Code/deepsvg/output/output.gif"  # Output file path
 interpolate_icons(id1, id2, filename=output_file)
 
 # Open the output file with the default application
