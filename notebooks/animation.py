@@ -18,72 +18,71 @@ from configs.deepsvg.hierarchical_ordered import Config
 import subprocess
 import os
 
-# Configuration and model setup
-pretrained_path = "/home/guinn8/Code/deepsvg/pretrained/hierarchical_ordered.pth.tar"
-cfg = Config()
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")  # Define the device here
-model = cfg.make_model().to(device)
-utils.load_model(pretrained_path, model)
-model.eval()
-dataset = load_dataset(cfg)
 
-def load_svg(filename):
-    svg = SVG.load_svg(filename)
-    svg = dataset.simplify(svg)
-    svg = dataset.preprocess(svg, mean=True)
-    return svg
+class SVGAnimator:
+    def __init__(self):
+        self.pretrained_path = "/home/guinn8/Code/deepsvg/pretrained/hierarchical_ordered.pth.tar"
+        self.cfg = Config()
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.model = self.cfg.make_model().to(self.device)
+        utils.load_model(self.pretrained_path, self.model)
+        self.model.eval()
+        self.dataset = load_dataset(self.cfg)
 
-def easein_easeout(t):
-    return t*t / (2. * (t*t - t) + 1.);
+    def load_svg(self, filename):
+        svg = SVG.load_svg(filename)
+        svg = self.dataset.simplify(svg)
+        svg = self.dataset.preprocess(svg, mean=True)
+        return svg
 
-def interpolate(z1, z2, n=25, filename=None, ease=True, do_display=True):
-    alphas = torch.linspace(0., 1., n)
-    if ease:
-        alphas = easein_easeout(alphas)
-    z_list = [(1-a) * z1 + a * z2 for a in alphas]
-    
-    img_list = [decode(z, do_display=False, return_png=True) for z in z_list]
-    to_gif(img_list + img_list[::-1], file_path=filename, frame_duration=1/12)
+    def easein_easeout(self, t):
+        return t * t / (2. * (t * t - t) + 1.)
 
-def encode(data):
-    model_args = batchify((data[key] for key in cfg.model_args), device)
-    with torch.no_grad():
-        z = model(*model_args, encode_mode=True)
-        return z
+    def interpolate(self, z1, z2, n=25, filename=None, ease=True, do_display=True):
+        alphas = torch.linspace(0., 1., n)
+        if ease:
+            alphas = self.easein_easeout(alphas)
+        z_list = [(1 - a) * z1 + a * z2 for a in alphas]
+        img_list = [self.decode(z, do_display=False, return_png=True) for z in z_list]
+        to_gif(img_list + img_list[::-1], file_path=filename, frame_duration=1 / 12)
 
-def encode_icon(idx):
-    data = dataset.get(id=idx, random_aug=False)
-    return encode(data)
-    
-def encode_svg(svg):
-    data = dataset.get(svg=svg)
-    return encode(data)
+    def encode(self, data):
+        model_args = batchify((data[key] for key in self.cfg.model_args), self.device)
+        with torch.no_grad():
+            return self.model(*model_args, encode_mode=True)
 
-def decode(z, do_display=True, return_svg=False, return_png=False):
-    commands_y, args_y = model.greedy_sample(z=z)
-    tensor_pred = SVGTensor.from_cmd_args(commands_y[0].cpu(), args_y[0].cpu())
-    svg_path_sample = SVG.from_tensor(tensor_pred.data, viewbox=Bbox(256), allow_empty=True).normalize().split_paths().set_color("random")
-    
-    if return_svg:
-        return svg_path_sample
-    
-    return svg_path_sample.draw(do_display=do_display, return_png=return_png)
+    def encode_icon(self, idx):
+        data = self.dataset.get(id=idx, random_aug=False)
+        return self.encode(data)
 
-def open_file_with_default_app(file_path):
-    try:
-        subprocess.run(["xdg-open", file_path], check=True)
-    except Exception as e:
-        print(f"Error opening file: {e}")
+    def encode_svg(self, svg):
+        data = self.dataset.get(svg=svg)
+        return self.encode(data)
 
-# Main Functionality
-def interpolate_icons(idx1=None, idx2=None, n=25, *args, **kwargs):
-    z1, z2 = encode_icon(idx1), encode_icon(idx2)
-    interpolate(z1, z2, n=n, *args, **kwargs)
+    def decode(self, z, do_display=True, return_svg=False, return_png=False):
+        commands_y, args_y = self.model.greedy_sample(z=z)
+        tensor_pred = SVGTensor.from_cmd_args(commands_y[0].cpu(), args_y[0].cpu())
+        svg_path_sample = SVG.from_tensor(tensor_pred.data, viewbox=Bbox(256), allow_empty=True).normalize().split_paths().set_color("random")
+        return svg_path_sample.draw(do_display=do_display, return_png=return_png) if not return_svg else svg_path_sample
 
-# Execution Logic (Example usage)
-id1, id2 = dataset.random_id(), dataset.random_id()
-output_file = "/home/guinn8/Code/deepsvg/output/output.gif"  # Output file path
-interpolate_icons(id1, id2, filename=output_file)
+    def open_file_with_default_app(self, file_path):
+        try:
+            subprocess.run(["xdg-open", file_path], check=True)
+        except Exception as e:
+            print(f"Error opening file: {e}")
 
-# Open the output file with the default application
-open_file_with_default_app(output_file)
+    def interpolate_icons(self, idx1=None, idx2=None, n=25, *args, **kwargs):
+        z1, z2 = self.encode_icon(idx1), self.encode_icon(idx2)
+        self.interpolate(z1, z2, n=n, *args, **kwargs)
+
+
+def main():
+    animator = SVGAnimator()
+    id1, id2 = animator.dataset.random_id(), animator.dataset.random_id()
+    output_file = "/home/guinn8/Code/deepsvg/output.gif"
+    animator.interpolate_icons(id1, id2, filename=output_file)
+    animator.open_file_with_default_app(output_file)
+
+
+if __name__ == "__main__":
+    main()
