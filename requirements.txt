@@ -6,7 +6,6 @@ svgwrite
 cairosvg
 IPython
 six>=1.12.0
-tensorflow
 tensorboardX
 pillow
 svglib
@@ -17,8 +16,9 @@ pandas
 networkx
 moviepy
 numba
-sklearn
+scikit-learn
 umap-learn
 umap-learn[plot]
 shapely
 kivy
+tensorflow
